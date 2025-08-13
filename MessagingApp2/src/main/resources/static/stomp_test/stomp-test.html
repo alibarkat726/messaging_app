@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>STOMP Chat Test</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<h2>WebSocket STOMP Chat Test</h2>
+
+<!-- Add User Form -->
+<h3>Add User</h3>
+<label>ID:</label>
+<input type="text" id="userId" value="john123"><br><br>
+<label>Full Name:</label>
+<input type="text" id="fullName" value="John Doe"><br><br>
+<label>Status:</label>
+<input type="text" id="status" value="ONLINE"><br><br>
+<button onclick="connect()">Connect</button>
+<button onclick="sendAddUser()">Send Add User</button>
+
+<hr>
+
+<!-- Chat Form -->
+<h3>Send Chat Message</h3>
+<label>Sender ID:</label>
+<input type="text" id="senderId" value="john123"><br><br>
+<label>Recipient ID:</label>
+<input type="text" id="recipientId" value="mary456"><br><br>
+<label>Message:</label>
+<input type="text" id="messageContent" value="Hello Mary!"><br><br>
+<button onclick="sendChatMessage()">Send Chat</button>
+
+<hr>
+
+<pre id="log"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script>
+    let stompClient = null;
+    let currentUserId = null;
+
+    function log(message) {
+        document.getElementById("log").textContent += message + "\n";
+        console.log(message);
+    }
+
+    function connect() {
+        currentUserId = document.getElementById("userId").value;
+        const socket = new WebSocket('ws://localhost:8080/ws');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            log("Connected: " + frame);
+
+            // Listen for broadcast messages
+            stompClient.subscribe('/topic/users', function (message) {
+                log("Broadcast (/user/topic): " + message.body);
+            });
+
+            // Listen for private messages to this user
+            stompClient.subscribe('/user/' + currentUserId + '/queue/messages', function (message) {
+                log("Private message (/user/" + currentUserId + "/queue/messages): " + message.body);
+            });
+        }, function (error) {
+            log("Connection error: " + error);
+        });
+    }
+
+    function sendAddUser() {
+        if (!stompClient || !stompClient.connected) {
+            log("Not connected");
+            return;
+        }
+        const user = {
+            id: document.getElementById("userId").value,
+            fullName: document.getElementById("fullName").value,
+            status: document.getElementById("status").value
+        };
+        stompClient.send("/app/user.addUser", {}, JSON.stringify(user));
+        log("Sent AddUser: " + JSON.stringify(user));
+    }
+
+    function sendChatMessage() {
+        if (!stompClient || !stompClient.connected) {
+            log("Not connected");
+            return;
+        }
+        const chatMessage = {
+            senderId: document.getElementById("senderId").value,
+            recipientId: document.getElementById("recipientId").value,
+            content: document.getElementById("messageContent").value
+        };
+        stompClient.send("/app/chat", {}, JSON.stringify(chatMessage));
+        log("Sent ChatMessage: " + JSON.stringify(chatMessage));
+    }
+</script>
+</body>
+</html>
